@@ -4,6 +4,17 @@ function log(pageId, msg, type = "normal") {
   console.log(`${prefix} [${pageId}] ${msg}`);
 }
 
+/* ==================== TOUCH CONTROLS FOR MOBILE ==================== */
+let touchStartX = 0;
+let touchEndX = 0;
+let touchStartY = 0;
+let touchEndY = 0;
+let touchStartTime = 0;
+let isTouchMove = false;
+
+const minSwipeDistance = 50; // Minimum distance for swipe detection
+const tapMaxDuration = 300; // Maximum time for a tap (ms)
+const tapMaxMovement = 10; // Maximum movement for a tap (pixels)
 const Draw = {
   circle: (ctx, x, y, r, color, text, stroke = null) => {
     ctx.beginPath();
@@ -2043,7 +2054,6 @@ const hashViz = {
   },
 };
 
-/* ==================== 3D SCENE SETUP ==================== */
 const dataStructures = [
   {
     name: "Binary Heap",
@@ -2166,16 +2176,118 @@ let targetRotation = 0;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
+/* ==================== DESKTOP MOUSE CLICK ==================== */
 mainCanvas.addEventListener("pointerdown", (event) => {
-  const rect = mainCanvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const intersects = raycaster.intersectObjects(spheres, false);
-  if (intersects.length > 0)
-    showVisualization(intersects[0].object.userData.page);
+  // Only handle mouse clicks on desktop (not touch)
+  if (event.pointerType === "mouse") {
+    const rect = mainCanvas.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(spheres, false);
+    if (intersects.length > 0) {
+      showVisualization(intersects[0].object.userData.page);
+    }
+  }
 });
 
+/* ==================== MOBILE TOUCH EVENTS ==================== */
+
+// Touch start - Record initial position and time
+mainCanvas.addEventListener(
+  "touchstart",
+  (event) => {
+    touchStartX = event.changedTouches[0].screenX;
+    touchStartY = event.changedTouches[0].screenY;
+    touchStartTime = Date.now();
+    isTouchMove = false;
+  },
+  { passive: true }
+);
+
+// Touch move - Detect if user is swiping
+mainCanvas.addEventListener(
+  "touchmove",
+  (event) => {
+    isTouchMove = true;
+  },
+  { passive: true }
+);
+
+// Touch end - Handle swipe or tap
+mainCanvas.addEventListener(
+  "touchend",
+  (event) => {
+    touchEndX = event.changedTouches[0].screenX;
+    touchEndY = event.changedTouches[0].screenY;
+
+    const touchDuration = Date.now() - touchStartTime;
+    const diffX = touchStartX - touchEndX;
+    const diffY = touchStartY - touchEndY;
+    const totalMovement = Math.sqrt(diffX * diffX + diffY * diffY);
+
+    // Check if it's a TAP (short duration, minimal movement)
+    if (touchDuration < tapMaxDuration && totalMovement < tapMaxMovement) {
+      handleTap(event);
+    }
+    // Otherwise check if it's a SWIPE
+    else if (
+      Math.abs(diffX) > Math.abs(diffY) &&
+      Math.abs(diffX) > minSwipeDistance
+    ) {
+      handleSwipe(diffX);
+    }
+  },
+  false
+);
+
+// Handle tap to open data structure
+function handleTap(event) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const touch = event.changedTouches[0];
+  pointer.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(spheres, false);
+
+  if (intersects.length > 0) {
+    // Visual feedback
+    const sphere = intersects[0].object;
+    sphere.scale.set(1.2, 1.2, 1.2);
+    setTimeout(() => {
+      sphere.scale.set(1, 1, 1);
+    }, 150);
+
+    // Open visualization
+    showVisualization(sphere.userData.page);
+  } else {
+    // If no sphere tapped, select the centered one (like double-tap feature)
+    const centeredSphere = getClosestSphereToFront();
+    if (centeredSphere) {
+      centeredSphere.scale.set(1.2, 1.2, 1.2);
+      setTimeout(() => {
+        centeredSphere.scale.set(1, 1, 1);
+      }, 150);
+      showVisualization(centeredSphere.userData.page);
+    }
+  }
+}
+
+// Handle swipe left/right
+function handleSwipe(diffX) {
+  if (diffX > 0) {
+    // Swiped LEFT (show next)
+    targetRotation -= Math.PI / 2;
+    console.log("⬅️ Swiped LEFT - Next structure");
+  } else {
+    // Swiped RIGHT (show previous)
+    targetRotation += Math.PI / 2;
+    console.log("➡️ Swiped RIGHT - Previous structure");
+  }
+}
+
+/* ==================== PARTICLES ==================== */
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesCount = 2000;
 const posArray = new Float32Array(particlesCount * 3);
@@ -2200,56 +2312,78 @@ const particlesMaterial = new THREE.PointsMaterial({
 const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
 scene.add(particlesMesh);
 
+/* ==================== ANIMATION LOOP ==================== */
 function animate() {
   requestAnimationFrame(animate);
   rotationY += (targetRotation - rotationY) * 0.08;
+
   spheres.forEach((sphere, i) => {
     const angle = (i / total) * Math.PI * 2 + rotationY;
     sphere.position.x = radius * Math.sin(angle);
     sphere.position.z = radius * Math.cos(angle);
     sphere.position.y = Math.sin(Date.now() * 0.001 + i * 1.5) * 0.3;
     sphere.lookAt(camera.position);
-
-    const positions = particlesGeometry.attributes.position.array;
-    for (let i = 0; i < particlesCount; i++) {
-      const i3 = i * 3;
-      positions[i3 + 1] += Math.sin(Date.now() * 0.001 + i) * 0.002;
-
-      const x = positions[i3];
-      const z = positions[i3 + 2];
-      positions[i3] = x * Math.cos(0.001) - z * Math.sin(0.001);
-      positions[i3 + 2] = x * Math.sin(0.001) + z * Math.cos(0.001);
-    }
-    particlesGeometry.attributes.position.needsUpdate = true;
   });
+
+  const positions = particlesGeometry.attributes.position.array;
+  for (let i = 0; i < particlesCount; i++) {
+    const i3 = i * 3;
+    positions[i3 + 1] += Math.sin(Date.now() * 0.001 + i) * 0.002;
+
+    const x = positions[i3];
+    const z = positions[i3 + 2];
+    positions[i3] = x * Math.cos(0.001) - z * Math.sin(0.001);
+    positions[i3 + 2] = x * Math.sin(0.001) + z * Math.cos(0.001);
+  }
+  particlesGeometry.attributes.position.needsUpdate = true;
+
   renderer.render(scene, camera);
 }
 animate();
 
+/* ==================== KEYBOARD CONTROLS (DESKTOP) ==================== */
 document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowLeft") targetRotation += Math.PI / 2;
-  if (e.key === "ArrowRight") targetRotation -= Math.PI / 2;
+  const landingPage = document.getElementById("landingPage");
 
-  if (e.key === "Enter") {
-    const landingPage = document.getElementById("landingPage");
-    if (landingPage && landingPage.style.display !== "none") {
+  // Only handle keyboard if on landing page
+  if (landingPage && landingPage.style.display !== "none") {
+    // Arrow Left - Previous structure
+    if (e.key === "ArrowLeft") {
       e.preventDefault();
+      targetRotation += Math.PI / 2;
+      console.log("⬅️ Arrow Left - Previous structure");
+    }
 
+    // Arrow Right - Next structure
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      targetRotation -= Math.PI / 2;
+      console.log("➡️ Arrow Right - Next structure");
+    }
+
+    // Enter - Open centered structure
+    if (e.key === "Enter") {
+      e.preventDefault();
       const centeredSphere = getClosestSphereToFront();
 
       if (centeredSphere) {
+        // Visual feedback
         centeredSphere.scale.set(1.3, 1.3, 1.3);
         setTimeout(() => {
           centeredSphere.scale.set(1, 1, 1);
         }, 200);
 
         const pageId = centeredSphere.userData.page;
+        console.log("✅ Enter pressed - Opening:", pageId);
         showVisualization(pageId);
       }
     }
   }
 });
 
+/* ==================== HELPER FUNCTIONS ==================== */
+
+// Get the sphere closest to front/center
 function getClosestSphereToFront() {
   let mostCentered = null;
   let minDistance = Infinity;
@@ -2266,6 +2400,7 @@ function getClosestSphereToFront() {
   return mostCentered;
 }
 
+// Show visualization page
 function showVisualization(pageId) {
   document.getElementById("landingPage").style.display = "none";
   document
@@ -2281,6 +2416,7 @@ function showVisualization(pageId) {
   }
 }
 
+// Go back to landing page
 function goBack() {
   document
     .querySelectorAll(".viz-page")
@@ -2288,6 +2424,7 @@ function goBack() {
   document.getElementById("landingPage").style.display = "block";
 }
 
+// Handle window resize
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
