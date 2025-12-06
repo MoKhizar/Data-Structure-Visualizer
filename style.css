@@ -788,11 +788,12 @@ canvas.viz-canvas {
 
   .header-box {
     top: 6%;
-    padding: 8px 20px;
+    padding: 6px 15px;
   }
 
   .header-box h1 {
-    font-size: 1.2rem;
+    font-size: 1rem;
+    white-space: nowrap;
   }
 
   .instruction-text {
@@ -856,15 +857,16 @@ canvas.viz-canvas {
 
   .header-box {
     top: 5%;
-    padding: 8px 15px;
+    padding: 5px 12px;
   }
 
   .header-box h1 {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
   }
 
   .header-box p {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     letter-spacing: 1px;
   }
 
