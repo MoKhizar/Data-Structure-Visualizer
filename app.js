@@ -1,3 +1,56 @@
+function addLog(message, type = "info") {
+  // Find the currently active page
+  const activePage = document.querySelector(".viz-page.active");
+  if (!activePage) return;
+
+  // Find log-content within that active page
+  const logContent = activePage.querySelector(".log-content");
+  if (!logContent) {
+    console.error("log-content not found in active page!");
+    return;
+  }
+
+  // Remove "No operations yet" message if it exists
+  const emptyMsg = logContent.querySelector(".log-empty");
+  if (emptyMsg) {
+    emptyMsg.remove();
+  }
+
+  // Create log entry element
+  const logEntry = document.createElement("div");
+  logEntry.className = `log-entry ${type}`;
+
+  // Add timestamp
+  const timestamp = new Date().toLocaleTimeString();
+  logEntry.innerHTML = `
+    <span class="log-timestamp">${timestamp}</span>
+    ${message}
+  `;
+
+  // Append to log container
+  logContent.appendChild(logEntry);
+
+  // Auto-scroll to bottom
+  logContent.scrollTop = logContent.scrollHeight;
+
+  // Keep only last 50 logs to prevent memory issues
+  const logs = logContent.querySelectorAll(".log-entry");
+  if (logs.length > 50) {
+    logs[0].remove();
+  }
+}
+
+function clearLog() {
+  // Find the currently active page
+  const activePage = document.querySelector(".viz-page.active");
+  if (!activePage) return;
+
+  // Find log-content within that page
+  const logContent = activePage.querySelector(".log-content");
+  if (logContent) {
+    logContent.innerHTML = '<div class="log-empty">No operations yet</div>';
+  }
+}
 /* ==================== PERFORMANCE OPTIMIZATION ==================== */
 
 // Detect if mobile device
@@ -1692,50 +1745,6 @@ const graphViz = {
   },
 };
 
-/* ==================== 4. HASH TABLE LOGIC ==================== */
-// ========== LOG SYSTEM ==========
-function addLog(message, type = "info") {
-  const logContent = document.getElementById("log-content");
-  if (!logContent) return; // Safety check
-
-  // Remove empty state if it exists
-  const emptyState = logContent.querySelector(".log-empty");
-  if (emptyState) {
-    emptyState.remove();
-  }
-
-  // Create log entry
-  const entry = document.createElement("div");
-  entry.className = `log-entry ${type}`;
-
-  const timestamp = new Date().toLocaleTimeString("en-US", {
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
-  entry.innerHTML = `${message}<span class="log-timestamp">${timestamp}</span>`;
-
-  logContent.appendChild(entry);
-
-  // Auto-scroll to bottom
-  logContent.scrollTop = logContent.scrollHeight;
-
-  // Keep only last 50 entries
-  const entries = logContent.querySelectorAll(".log-entry");
-  if (entries.length > 50) {
-    entries[0].remove();
-  }
-}
-
-function clearLog() {
-  const logContent = document.getElementById("log-content");
-  if (logContent) {
-    logContent.innerHTML = '<div class="log-empty">No operations yet</div>';
-  }
-}
-
 // ========== HASH TABLE VISUALIZATION (WITH LOGS) ==========
 const hashViz = {
   table: new Array(10).fill(null),
@@ -2132,8 +2141,8 @@ sphereGeometry.rotateY(-Math.PI / 2);
 
 dataStructures.forEach((ds, i) => {
   const labelCanvas = document.createElement("canvas");
-  labelCanvas.width = CANVAS_SIZE;
-  labelCanvas.height = CANVAS_SIZE;
+  labelCanvas.width = 512;
+  labelCanvas.height = 512;
   const ctx = labelCanvas.getContext("2d");
 
   ctx.clearRect(0, 0, 512, 512);
@@ -2302,7 +2311,7 @@ function handleSwipe(diffX) {
 
 /* ==================== PARTICLES ==================== */
 const particlesGeometry = new THREE.BufferGeometry();
-const particlesCount = PARTICLES_COUNT;
+const particlesCount = 2000;
 const posArray = new Float32Array(particlesCount * 3);
 
 for (let i = 0; i < particlesCount * 3; i++) {
