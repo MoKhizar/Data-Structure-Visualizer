@@ -1,3 +1,16 @@
+/* ==================== PERFORMANCE OPTIMIZATION ==================== */
+
+// Detect if mobile device
+const isMobile =
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  ) || window.innerWidth < 768;
+
+// Adjust settings based on device
+const PARTICLES_COUNT = isMobile ? 500 : 2000; // 4x less particles on mobile
+const CANVAS_SIZE = isMobile ? 256 : 512; // Half resolution on mobile
+const SPHERE_DETAIL = isMobile ? 32 : 64; // Lower geometry detail on mobile
+const PIXEL_RATIO = isMobile ? 1 : Math.min(window.devicePixelRatio, 2); // Limit pixel ratio
 /* ==================== UTILITIES & LOGGING ==================== */
 function log(pageId, msg, type = "normal") {
   const prefix = type === "error" ? "❌" : type === "highlight" ? "✨" : "ℹ️";
@@ -2119,8 +2132,8 @@ sphereGeometry.rotateY(-Math.PI / 2);
 
 dataStructures.forEach((ds, i) => {
   const labelCanvas = document.createElement("canvas");
-  labelCanvas.width = 512;
-  labelCanvas.height = 512;
+  labelCanvas.width = CANVAS_SIZE;
+  labelCanvas.height = CANVAS_SIZE;
   const ctx = labelCanvas.getContext("2d");
 
   ctx.clearRect(0, 0, 512, 512);
@@ -2289,7 +2302,7 @@ function handleSwipe(diffX) {
 
 /* ==================== PARTICLES ==================== */
 const particlesGeometry = new THREE.BufferGeometry();
-const particlesCount = 2000;
+const particlesCount = PARTICLES_COUNT;
 const posArray = new Float32Array(particlesCount * 3);
 
 for (let i = 0; i < particlesCount * 3; i++) {
